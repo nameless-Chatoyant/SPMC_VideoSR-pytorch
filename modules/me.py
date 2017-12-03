@@ -15,8 +15,10 @@ class CoarseFlowEstimation(nn.Module):
     def forward(self, x):
         for layer_idx, conv in enumerate(self.conv_layers):
             x = conv(x)
+            x = F.pad(x, pad = ((),()))
             x = F.relu(x) if layer_idx != len(self.conv_layers) - 1 else F.tanh(x)
-        pass
+        x = F.pixel_shuffle(x, 4)
+        return x
 
 class FineFlowEstimation(nn.Module):
     def __init__(self):
@@ -29,31 +31,18 @@ class FineFlowEstimation(nn.Module):
                                         kernel_size = each_k,
                                         stride = each_s) for i_ch_in, each_k, each_n, each_s in zip(ch_in, k, n, s)]
     def forward(self, x):
-        pass
+        for layer_idx, conv in enumerate(self.conv_layers):
+            x = conv(x)
+            x = F.pad(x, pad = ((),()))
+            x = F.relu(x) if layer_idx != len(self.conv_layers) - 1 else F.tanh(x)
+        x = F.pixel_shuffle(x, 2)
+        return x
 
 
 class MotionEstimation(nn.Module):
     def __init__(self):
-        coarse_k = [5, 3, 5, 3, 3]
-        coarse_ch_in = [2, 24, 24, 24, 24]
-        coarse_n = [24, 24, 24, 24, 32]
-        coarse_s = [2, 1, 2, 1, 1]
-
-        fine_ch_in = [3, 24, 24, 24, 24]
-        fine_k = [5, 3, 3, 3, 3]
-        fine_n = [24, 24, 24, 24, 8]
-        fine_s = [2, 1, 1, 1, 1]
-
-        self.coarse_flow = [nn.Conv2d(in_channels = ch_in,
-                            out_channels = n,
-                            kernel_size = k,
-                            stride = s) for ch_in, k, n, s in zip(coarse_ch_in, coarse_k, coarse_n, coarse_s)]
-
-        self.fine_flow = [nn.Conv2d(in_channels = ch_in,
-                            out_channels = n,
-                            kernel_size = k,
-                            stride = s) for ch_in, k, n, s in zip(fine_ch_in, fine_k, fine_n, fine_s)]
-
+        self.coarse_flow_estimation = CoarseFlowEstimation()
+        self.fine_flow_estimation = FineFlowEstimation()
     def forward(self, x):
         delta_c = x
         for i in self.coarse_flow:
