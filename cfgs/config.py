@@ -1,0 +1,1 @@
+from .config_latest import args
