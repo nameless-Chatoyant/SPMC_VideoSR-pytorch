@@ -1,22 +1,8 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
-
-from math import floor, ceil
-
+from torch import nn
 from utils import same_padding_conv, backward_warp, subpixel_upscale
-
-class CoarseFlowEstimationConfig(object):
-    ch_in = [2, 24, 24, 24, 24]
-    ch_out = [24, 24, 24, 24, 32]
-    kernel_size = [5, 3, 5, 3, 3]
-    stride = [2, 1, 2, 1, 1]
-
-class FineFlowEstimationConfig(object):
-    ch_in = [5, 24, 24, 24, 24]
-    ch_out = [24, 24, 24, 24, 8]
-    kernel_size = [5, 3, 3, 3, 3]
-    stride = [2, 1, 1, 1, 1]
 
 class CoarseFlowEstimation(nn.Module):
     def __init__(self, args):
@@ -44,13 +30,13 @@ class FineFlowEstimation(nn.Module):
 class MotionEstimation(nn.Module):
     def __init__(self, args):
         super(MotionEstimation, self).__init__()
-        self.coarse_flow_estimation = CoarseFlowEstimation(CoarseFlowEstimationConfig())
-        self.fine_flow_estimation = FineFlowEstimation(FineFlowEstimationConfig())
+        self.coarse_flow_estimation = CoarseFlowEstimation(args.coarse_flow_estimation)
+        self.fine_flow_estimation = FineFlowEstimation(args.fine_flow_estimation)
 
     def forward(self, reference, img):
         x = torch.cat([reference, img], dim = 1) # (b, 2, h, w)
         coarse_flow = self.coarse_flow_estimation(x) # (b, 2, h, w)
-        sample_by_coarse_flow = backward_warping(img, coarse_flow) # (b, 1, h, w)
+        sample_by_coarse_flow = backward_warp(img, get_coords(x) + coarse_flow) # (b, 1, h, w)
         x = torch.cat([reference, img, coarse_flow, sample_by_coarse_flow], dim = 1) # (b, 5, h, w)
         fine_flow = self.fine_flow_estimation(x) # (b, 2, h, w)
         

@@ -1,16 +1,19 @@
+import torch
 import numpy as np
+from math import floor, ceil
+import torch.nn.functional as F
 def get_neighbours(coords):
     """返回coords对应的neighbours，顺序为：左上、右上、左下、右下
     
     # Arguments
         coords: coords是H*W*2的矩阵，coords[v,u]的[y, x]表明原图坐标为[v,u]的像素应移动到[y,x]处
     """
-    coords_lower_right = np.ceil(coords)
-    coords_upper_left = np.floor(coords)
-    ys_upper, xs_left = np.split(coords_upper_left, 2, axis = -1)
-    ys_lower, xs_right = np.split(coords_lower_right, 2, axis = -1)
-    coords_lower_left = np.concatenate((ys_lower, xs_left), axis = -1)
-    coords_upper_right = np.concatenate((ys_upper, xs_right), axis = -1)
+    coords_lower_right = torch.ceil(coords)
+    coords_upper_left = torch.floor(coords)
+    ys_upper, xs_left = torch.split(coords_upper_left, 2, axis = 1)
+    ys_lower, xs_right = torch.split(coords_lower_right, 2, axis = 1)
+    coords_lower_left = torch.cat((ys_lower, xs_left), axis = 1)
+    coords_upper_right = torch.cat((ys_upper, xs_right), axis = 1)
     
     return coords_upper_left, coords_upper_right, coords_lower_left, coords_lower_right
 
@@ -27,8 +30,14 @@ def subpixel_upscale(x, scale):
     x = torch.cat([_subpixel_upscale(i, scale) for i in x], dim = 1)
     return x
 def forward_warp(img, mapping):
+    coords_upper_left, coords_upper_right, coords_lower_left, coords_lower_right = get_neighbours(mapping) # all (b, 2, h, w)
+    diff = mapping - coords_upper_left
+    neg_diff = 1.0 - diff
+    diff_y, diff_x = torch.split(diff, 2, dim = 1)
+    neg_diff_y, neg_diff_x = torch.split(neg_diff, 2, dim = 1)
     return img
 def backward_warp(img, mapping):
+    coords_upper_left, coords_upper_right, coords_lower_left, coords_lower_right = get_neighbours(mapping) # all (b, 2, h, w)
     return img
 
 def get_coords(x):
@@ -38,10 +47,10 @@ def get_coords(x):
         x: (b, c, h, w)
     
     # Returns
-        coords: (b, 2, h, w)
+        coords: (h, w, 2)
     """
     b, c, h, w = x.size()
-    coords = np.empty((h, w, 2), dtype = np.float32)
+    coords = np.empty((h, w, 2), dtype = np.int)
     coords[..., 0] = np.arange(h)[:, None]
     coords[..., 1] = np.arange(w)
 
