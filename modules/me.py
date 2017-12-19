@@ -13,7 +13,7 @@ class CoarseFlowEstimation(nn.Module):
         for layer_idx, conv in enumerate(self.conv_layers):
             x = same_padding_conv(x, conv)
             x = F.relu(x) if layer_idx != len(self.conv_layers) - 1 else F.tanh(x)
-        x = subpixel_upscale(x, 4)
+        x = F.pixel_shuffle(x, 4)
         return x
 
 class FineFlowEstimation(nn.Module):
@@ -24,7 +24,7 @@ class FineFlowEstimation(nn.Module):
         for layer_idx, conv in enumerate(self.conv_layers):
             x = same_padding_conv(x, conv)
             x = F.relu(x) if layer_idx != len(self.conv_layers) - 1 else F.tanh(x)
-        x = subpixel_upscale(x, 2)
+        x = pixel_shuffle(x, 2)
         return x
 
 class MotionEstimation(nn.Module):

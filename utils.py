@@ -17,18 +17,6 @@ def get_neighbours(coords):
     
     return coords_upper_left, coords_upper_right, coords_lower_left, coords_lower_right
 
-def subpixel_upscale(x, scale):
-    def _subpixel_upscale(x, scale):
-        b, c, h, w = x.size()
-        x = np.reshape(x, (b, scale, scale, h, w))
-        x = torch.split(x, h, dim = 3) # [(b, scale, scale, 1, w)] * h
-        x = torch.cat([torch.squeeze(i, dim = 3) for i in x], dim = 1) # (b, scale*h, scale, w)
-        x = torch.split(x, w, dim = 3) # [(b, scale*h, scale, 1)] * w
-        x = torch.cat([torch.squeeze(i, dim = 3) for i in x], dim = 2) # (b, scale*h, scale*w)
-        return np.reshape(x, (b, 1, scale*h, scale*w))
-    x = torch.split(x, 2, dim = 1)
-    x = torch.cat([_subpixel_upscale(i, scale) for i in x], dim = 1)
-    return x
 def forward_warp(img, mapping):
     coords_upper_left, coords_upper_right, coords_lower_left, coords_lower_right = get_neighbours(mapping) # all (b, 2, h, w)
     diff = mapping - coords_upper_left

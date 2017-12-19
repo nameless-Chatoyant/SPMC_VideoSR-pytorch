@@ -17,6 +17,7 @@
 
 ## Metrics
 (PSNR/SSIM)
+
 | Method | Ours | Paper |
 |:---:|:---:|:---:|
 | ×2 |  | 36.71 / 0.96 |
