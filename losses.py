@@ -6,8 +6,9 @@ euclidean_loss = 0
 
 
 def me_loss_func(reference, imgs, flows):
+    b, c, h, w = reference.size()
     lambda1 = 0.01
-    coords = get_coords(reference)
+    coords = get_coords(h, w)
     mappings = [coords + i for i in flows]
     warped = [backward_warp(reference, mappings[i]) for i in range(len(flows))]
     multi_reference = torch.stack([reference] * len(imgs), axis = 0)

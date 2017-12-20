@@ -59,10 +59,11 @@ print(*indices, sep = '\n')
 print('--------------------------------------')
 print(*indices_upper_left, sep = '\n')
 
-a = np.ones((2,1,3,3))
+a = np.arange(18).reshape((2,1,3,3))
 print('before:', a, sep = '\n')
+print('-------------')
 b = np.zeros((2,1,3,3))
 # a[indices] = 0
-b = a[indices_upper_left] + a[indices_upper_right] + a[indices_lower_left] + a[indices_lower_right]
-print(b)
+b = (a[indices_upper_left] + a[indices_upper_left]).reshape((2,1,3,3))# a[indices_upper_right] + a[indices_lower_left] + a[indices_lower_right]
+print(b, b.shape)
 # print('after:', a, sep = '\n')

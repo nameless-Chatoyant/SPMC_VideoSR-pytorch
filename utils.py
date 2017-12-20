@@ -8,36 +8,104 @@ def get_neighbours(coords):
     # Arguments
         coords: coords是H*W*2的矩阵，coords[v,u]的[y, x]表明原图坐标为[v,u]的像素应移动到[y,x]处
     """
-    coords_lower_right = torch.ceil(coords)
-    coords_upper_left = torch.floor(coords)
-    ys_upper, xs_left = torch.split(coords_upper_left, 2, axis = 1)
-    ys_lower, xs_right = torch.split(coords_lower_right, 2, axis = 1)
-    coords_lower_left = torch.cat((ys_lower, xs_left), axis = 1)
-    coords_upper_right = torch.cat((ys_upper, xs_right), axis = 1)
+    coords_lr = torch.ceil(coords)
+    coords_ul = torch.floor(coords)
+    ys_upper, xs_left = torch.split(coords_ul, 2, axis = 1)
+    ys_lower, xs_right = torch.split(coords_lr, 2, axis = 1)
+    coords_ll = torch.cat((ys_lower, xs_left), axis = 1)
+    coords_ur = torch.cat((ys_upper, xs_right), axis = 1)
     
-    return coords_upper_left, coords_upper_right, coords_lower_left, coords_lower_right
+    return coords_ul, coords_ur, coords_ll, coords_lr
+def mapping_to_indices(coords, batch_size):
+    """numpy advanced indexing is like x[<indices on axis 0>, <indices on axis 1>, ...]
+        this function convert coords of shape (h, w, 2) to advanced indices
+    
+    # Arguments
+        coords: shape of (h, w, 2)
+    # Returns
+        indices: [<indices on axis 0>, <indices on axis 1>, ...]
+    """
+    h, w = coords.shape[:2]
+    indices_axis_0 = list(np.repeat(np.arange(batch_size), h * w))
+    indices_axis_1 = [0]
+    indices_axis_2 = list(np.tile(coords[:,:,0].reshape(-1), 2))
+    indices_axis_3 = list(np.tile(coords[:,:,1].reshape(-1), batch_size))
+    return [indices_axis_0, indices_axis_1, indices_axis_2, indices_axis_3]
 
-def forward_warp(img, mapping):
-    coords_upper_left, coords_upper_right, coords_lower_left, coords_lower_right = get_neighbours(mapping) # all (b, 2, h, w)
-    diff = mapping - coords_upper_left
+def sample(src, coords):
+    """Out of boundary coordinates will be clipped.
+    """
+    b, h, w, c = src.size()
+    h_sample, w_sample = coords.shape[:2]
+    max_coord = [h - 1, w - 1]
+    coords = np.clip(coords, 0, max_coord)
+    indices = mapping_to_indices(coords, b)
+
+    sampled = src[indices].reshape((h_sample, w_sample))
+
+    return sampled
+
+def forward_warp(src, mapping):
+    """
+
+    # Arguments
+        src: (b, h, w, c)
+        mapping: from **src** to **dst**, (b, h, w, 2)
+    """
+    def scatter(src, coords):
+        b, h, w, c = src.size()
+        indices = mapping_to_indices(coords, b)
+        pass
+    b, h, w, c = src.size()
+    coords_ul, coords_ur, coords_ll, coords_lr = get_neighbours(mapping) # all (b, 2, h, w)
+    diff = mapping - coords_ul
     neg_diff = 1.0 - diff
     diff_y, diff_x = torch.split(diff, 2, dim = 1)
     neg_diff_y, neg_diff_x = torch.split(neg_diff, 2, dim = 1)
-    return img
-def backward_warp(img, mapping):
-    coords_upper_left, coords_upper_right, coords_lower_left, coords_lower_right = get_neighbours(mapping) # all (b, 2, h, w)
-    return img
 
-def get_coords(x):
+    dst_ul = np.zeros((b, h, w, c))
+    dst = np.sum([
+        scatter(src * diff_y * diff_x, coords_ul),
+        scatter(src * diff_y * neg_diff_x, coords_ur),
+        scatter(src * neg_diff_y * diff_x, coords_ll),
+        scatter(src * neg_diff_y * neg_diff_x, coords_ur)
+    ], axis = -1)
+    return dst
+
+def backward_warp(src, mapping):
+    """
+
+    # Arguments
+        src: source tensor, (b, h, w, c)
+        mapping: from **dst** to **src**
+    """
+    coords_ul, coords_ur, coords_ll, coords_lr = get_neighbours(mapping) # all (b, 2, h, w)
+
+    diff = mapping - coords_ul
+    neg_diff = 1.0 - diff
+    diff_y, diff_x = torch.split(diff, 2, dim = 1)
+    neg_diff_y, neg_diff_x = torch.split(neg_diff, 2, dim = 1)
+
+    res = np.sum([
+        sample(src, coords_ul) * diff_y * diff_x,
+        sample(src, coords_ur) * diff_y * neg_diff_x,
+        sample(src, coords_ll) * neg_diff_y * diff_x,
+        sample(src, coords_ll) * neg_diff_y * neg_diff_x
+    ], axis=-1)
+
+
+    return src
+
+def get_coords(h, w):
     """get coords matrix of x
 
     # Arguments
-        x: (b, c, h, w)
+        h
+        w
     
     # Returns
         coords: (h, w, 2)
     """
-    b, c, h, w = x.size()
     coords = np.empty((h, w, 2), dtype = np.int)
     coords[..., 0] = np.arange(h)[:, None]
     coords[..., 1] = np.arange(w)
