@@ -3,6 +3,9 @@ from torch import nn
 import torch.nn.functional as F
 from modules import *
 from cfgs.config import args
+import torch.optim as optim
+
+from torch.autograd import Variable
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
@@ -19,3 +22,4 @@ class Net(nn.Module):
             feature = self.encoder()
             print(self.encoder.skip_connections)
         return feature
+

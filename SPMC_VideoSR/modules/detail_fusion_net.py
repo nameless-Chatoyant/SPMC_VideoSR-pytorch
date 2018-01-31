@@ -110,6 +110,7 @@ class DetailFusionNet(nn.Module):
     def __init__(self, args):
         super(DetailFusionNet, self).__init__()
         self.encoder = Encoder(args.encoder)
+        self.convlstm = ConvLSTM()
         self.decoder = Decoder(args.decoder)
     def forward(self, hr_sparses, lr):
         """
